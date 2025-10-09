@@ -3,23 +3,18 @@ const int ADC_PIN = 28;  // Pino analogico para ler o valor do sensor
 const int S0_PIN = 16;   // Pino de controle A (Pino 11 do CD4051B)
 const int S1_PIN = 17;   // Pino de controle B (Pino 10 do CD4051B)
 const int S2_PIN = 18;   // Pino de controle C (Pino 9 do CD4051B)
-const int calibrar = 19; // Botão de calibragem
+const int Bcalibrar = 19; // Botão de calibragem
 
-// Array para armazenar os valores de cada sensor
-int sensorValues[8];
-int sensorValuesA[8];
+int* dadosSL(void);
 
-int maxmin[8][2]; 
+int* calibragemSL(void);
 
-int i;
-
-void calibragem(void);
+void printSL(void);
 
 void setup() {
   // Inicia a comunicacao serial para exibir os dados no Plotter Serial
   Serial.begin(115200);
   delay(1000);
-  Serial.println("Pronto para plotar todos os 8 sensores.");
 
   // Configura os pinos de controle do multiplexador como saida
   pinMode(S0_PIN, OUTPUT);
@@ -28,31 +23,76 @@ void setup() {
 
   // Configura o pino analogico como entrada
   pinMode(ADC_PIN, INPUT);
-  
-  //calibragem();
 }
 
 void loop() {
-  // 1. Leitura dos 8 sensores
-  for (int channel = 0; channel < 8; channel++) {
-    // Seleciona o canal do multiplexador.
-    digitalWrite(S0_PIN, (channel >> 0) & 0x01);
-    digitalWrite(S1_PIN, (channel >> 1) & 0x01);
-    digitalWrite(S2_PIN, (channel >> 2) & 0x01);
+  
+  printSL();
 
-    // Aguarda um pequeno tempo para o multiplexador estabilizar
-    delay(10);
-    
-    // Le o valor do sensor no canal selecionado e armazena no array
-    sensorValues[channel] = analogRead(ADC_PIN);
+  if (digitalRead(Bcalibrar) == 1){
+    while (digitalRead(Bcalibrar)){
+      Serial.print(digitalRead(Bcalibrar));
+    } 
+      calibragemSL();
+  }
+}
+
+int* calibragemSL(){
+  int calibrado = 0;
+  int* sensor = dadosSL();
+  int maxmin[8][2]; 
+  static int referencia[8];
+
+  for (int channel = 0; channel < 8; channel++) 
+    maxmin[channel][0] = maxmin[channel][1] = sensor[channel];
+
+  while (calibrado < 1000){
+    dadosSL();
+
+    for (int channel = 0; channel < 8; channel++) {
+      if (sensor[channel] < maxmin[channel][1]) 
+        maxmin[channel][1] = sensor[channel];
+      
+      else if (sensor[channel] > maxmin[channel][0])
+        maxmin[channel][0] = sensor[channel];
+      
+      else
+        calibrado++;
+    }
   }
 
-  // 2. Impressao dos valores para Plotagem
-  
+  for (int channel = 0; channel < 8; channel++)
+    referencia[channel] = (maxmin[channel][1] + maxmin[channel][0])/2;
+
+  return referencia;
+}
+
+int* dadosSL(){
+  static int sensor[8];
+
+  for (int channel = 0; channel < 8; channel++) {
+      // Seleciona o canal do multiplexador.
+      digitalWrite(S0_PIN, (channel >> 0) & 0x01);
+      digitalWrite(S1_PIN, (channel >> 1) & 0x01);
+      digitalWrite(S2_PIN, (channel >> 2) & 0x01);
+
+      // Aguarda um pequeno tempo para o multiplexador estabilizar
+      delay(5);
+      
+      // Le o valor do sensor no canal selecionado e armazena no array
+      sensor[channel] = analogRead(ADC_PIN);
+    }
+  return sensor;
+}
+
+void printSL(){
+  int sensorA[8];
+  int* sensor = dadosSL();
+
   // Imprime os 8 valores do array na mesma linha
   for (int channel = 0; channel < 8; channel++) {
-    Serial.print(sensorValues[channel]*0.05 + sensorValuesA[channel]*0.95);
-    sensorValuesA[channel] = sensorValues[channel];
+    Serial.print(sensor[channel]*0.05 + sensorA[channel]*0.95);
+    sensorA[channel] = sensor[channel];
     Serial.print('\t'); // Usa tabulacao para separar os valores
   }
 
@@ -60,56 +100,4 @@ void loop() {
 
   // Atraso para nao sobrecarregar a porta serial
   delay(50);
-
-  if (digitalRead(calibrar) == 1){
-    while (digitalRead(calibrar)){Serial.print(digitalRead(calibrar));} 
-      calibragem();
-  }
-}
-
-void calibragem(){
-  for (int channel = 0; channel < 8; channel++) {
-      // Seleciona o canal do multiplexador.
-      digitalWrite(S0_PIN, (channel >> 0) & 0x01);
-      digitalWrite(S1_PIN, (channel >> 1) & 0x01);
-      digitalWrite(S2_PIN, (channel >> 2) & 0x01);
-
-      // Aguarda um pequeno tempo para o multiplexador estabilizar
-      delay(5);
-      
-      // Le o valor do sensor no canal selecionado e armazena no array
-      maxmin[channel][0] = analogRead(ADC_PIN);
-      maxmin[channel][1] = analogRead(ADC_PIN);
-    }
-
-  while (i < 5000){
-    i = i + 1;
-    for (int channel = 0; channel < 8; channel++) {
-      // Seleciona o canal do multiplexador.
-      digitalWrite(S0_PIN, (channel >> 0) & 0x01);
-      digitalWrite(S1_PIN, (channel >> 1) & 0x01);
-      digitalWrite(S2_PIN, (channel >> 2) & 0x01);
-
-      // Aguarda um pequeno tempo para o multiplexador estabilizar
-      delay(5);
-      
-      // Le o valor do sensor no canal selecionado e armazena no array
-      sensorValues[channel] = analogRead(ADC_PIN);
-    }
-
-    for (int channel = 0; channel < 8; channel++) {
-      if (sensorValues[channel] < maxmin[channel][0]) 
-        maxmin[channel][0] = sensorValues[channel];
-      
-      else if (sensorValues[channel] > maxmin[channel][1])
-        maxmin[channel][1] = sensorValues[channel];
-
-      Serial.print(channel);
-      Serial.print(" ");
-      Serial.print(maxmin[channel][0]);
-      Serial.print(" ");
-      Serial.print(maxmin[channel][1]);
-      Serial.println(" ");
-    }
-  }
 }
