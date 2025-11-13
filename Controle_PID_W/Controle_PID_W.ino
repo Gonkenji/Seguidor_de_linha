@@ -81,14 +81,18 @@ void calibragemSL(){
 
   digitalWrite(ledplaca, !digitalRead(ledplaca));
 
-  for (int channel = 0; channel < 8; channel++)
-    maxmin[channel][0] = maxmin[channel][1] = sensorA[channel] = 600;
+  for (int channel = 0; channel < 8; channel++){
+    maxmin[channel][0] = maxmin[channel][1] = 600;
+    sensorA[channel] = sensor[channel];
+  }
+
+  delay(100);
 
   while (calibrado < 2000){
     dadosSL();
 
     for (int channel = 0; channel < 8; channel++) {
-      sensor[channel] = sensorA[channel]*0.9 + sensor[channel]*0.1;
+      sensor[channel] = sensorA[channel]*0.5 + sensor[channel]*0.5;
 
       if (sensor[channel] < maxmin[channel][0]) 
         maxmin[channel][0] = sensor[channel];
@@ -109,6 +113,7 @@ void calibragemSL(){
     Serial.print('\t');
     Serial.print(maxmin[0][1]);
     Serial.print('\t');
+    Serial.println();
   }
 
   for (int channel = 0; channel < 8; channel++){
@@ -117,13 +122,7 @@ void calibragemSL(){
   }
 
   SLcalibrado = 1;
-  for (int channel = 0; channel < 8; channel++){
-    Serial.println(maxmin[channel][0]);
-    Serial.println(maxmin[channel][1]);
-    Serial.println(escala[channel][0]);
-    Serial.println(escala[channel][1]);
-    Serial.println("");
-  }
+
   digitalWrite(ledplaca, !digitalRead(ledplaca));
   delay(1000);
 }
@@ -201,22 +200,22 @@ void setMotorSpeed(int pwmPin, int speed) {
 }
 
 void controle_P(){
-  int velA;
-  int velB;
-  int vel = 60;
+  float velA;
+  float velB;
+  float vel = 60;
   int *rawsensor = dadosSL();
-  int Satual;
-  int Slfiltrado;
-  static int sensorA[8];
-  int peso[8] = {-4000, -3000, -2000, -1000, 1000, 2000, 3000, 4000};
+  float Satual;
+  float Slfiltrado;
+  static float sensorA[8];
+  float peso[8] = {-1500, -1000, -300, -100, 100, 300, 1000, 1500};
 
   long somaP = 0;
   long somaT = 0;
   long erro;
   static long erroA;
 
-  static float kp = 0.01;
-  static float kd = 0.001;
+  static float kp = 0.12;
+  static float kd = 0.073;
   static float ki = 0;
 
   float p;
@@ -237,7 +236,9 @@ void controle_P(){
   for (int channel = 0; channel < 8; channel++) {
     Satual =  escala[channel][0]*(rawsensor[channel]-escala[channel][1]);
     Satual = constrain(Satual, 0, 1000);
-    Slfiltrado = sensorA[channel]*0 + Satual*1;
+    Slfiltrado = sensorA[channel]*0.6 + Satual*0.4;
+    /*Serial.print(Slfiltrado);
+    Serial.print('\t');*/
     sensorA[channel] = Slfiltrado;
     somaP += (long)Slfiltrado*peso[channel];
     somaT += Slfiltrado;
@@ -274,18 +275,19 @@ void controle_P(){
   setMotorSpeed(PWMA, velA); //esquerda
   setMotorSpeed(PWMB, velB); //direita
 
-  /*Serial.print(somaP);
-  Serial.print('\t');
+  /*
   Serial.print(p*kp);
   Serial.print('\t');
   Serial.print(d*kd);
   Serial.print('\t');
-  Serial.print(i*ki);
-  Serial.print('\t');*/
   Serial.print(velB);
   Serial.print('\t');
   Serial.print(velA);
   Serial.print('\t');
+  Serial.print(erro);
+  Serial.print('\t');
+  
   //printSL();
   Serial.println();
-}
+  */
+  }
