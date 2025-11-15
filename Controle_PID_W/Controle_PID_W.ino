@@ -19,7 +19,7 @@ const int ledplaca = 25;
 unsigned long tempo_anterior = 0;
 float deltaT = 0;
 
-bool tempo = 1;
+long tempo;
 
 bool SLcalibrado = 0;
 
@@ -52,7 +52,6 @@ void setup() {
   setMotorDirection(AIN1, AIN2, 1);
   setMotorDirection(BIN1, BIN2, 1);
   digitalWrite(ledplaca, 1);
-  
 }
 
 void loop() {
@@ -66,11 +65,20 @@ void loop() {
     while (digitalRead(Bcalibrar)){
     } 
       calibragemSL();
+      tempo = millis();
   }
 
-  if (SLcalibrado)
+  if (SLcalibrado){
     controle_P();
 
+    if (millis() - tempo > 15000) {
+      setMotorSpeed(PWMA, 0);
+      setMotorSpeed(PWMB, 0);
+      while (1){
+        continue;
+      }
+    }
+  }
 }
 
 void calibragemSL(){
@@ -143,7 +151,7 @@ int* dadosSL(){
       digitalWrite(S1_PIN, (channel >> 1) & 0x01);
       digitalWrite(S2_PIN, (channel >> 2) & 0x01);
 
-      delayMicroseconds(50);
+      delayMicroseconds(75);
       
       // Le o valor do sensor no canal selecionado e armazena no array
       sensor[channel] = analogRead(ADC_PIN);
@@ -210,7 +218,7 @@ void setMotorSpeed(int pwmPin, int speed) {
 void controle_P(){
   float velA;
   float velB;
-  float vel = 50;
+  float vel = 60;
   int *rawsensor = dadosSL();
   float Satual;
   float Slfiltrado;
@@ -222,8 +230,8 @@ void controle_P(){
   long erro;
   static long erroA;
 
-  static float kp = 10;
-  static float kd = 5;
+  static float kp = 15;
+  static float kd = 6;
   static float ki = 0;
 
   float p;
