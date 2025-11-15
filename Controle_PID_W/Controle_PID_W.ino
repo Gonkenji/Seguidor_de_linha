@@ -19,6 +19,8 @@ const int ledplaca = 25;
 unsigned long tempo_anterior = 0;
 float deltaT = 0;
 
+bool tempo = 1;
+
 bool SLcalibrado = 0;
 
 float escala[8][2];
@@ -37,8 +39,8 @@ void controle_P(void);
 
 void setup() {
   // Inicia a comunicacao serial para exibir os dados no Plotter Serial
-  Serial.begin(115200);
-  delay(1000);
+  /*Serial.begin(115200);
+  delay(1000);*/
 
   // Configura os pinos de controle do multiplexador como saida
   pinMode(S0_PIN, OUTPUT);
@@ -65,12 +67,10 @@ void loop() {
     } 
       calibragemSL();
   }
-  if (SLcalibrado){
-    controle_P();
-  }
 
-  //printSL();
-  //Serial.println();
+  if (SLcalibrado)
+    controle_P();
+
 }
 
 void calibragemSL(){
@@ -82,13 +82,13 @@ void calibragemSL(){
   digitalWrite(ledplaca, !digitalRead(ledplaca));
 
   for (int channel = 0; channel < 8; channel++){
-    maxmin[channel][0] = maxmin[channel][1] = 600;
+    maxmin[channel][0] = maxmin[channel][1] = sensor[channel];
     sensorA[channel] = sensor[channel];
   }
 
   delay(100);
 
-  while (calibrado < 2000){
+  while (calibrado < 200000){
     dadosSL();
 
     for (int channel = 0; channel < 8; channel++) {
@@ -107,19 +107,27 @@ void calibragemSL(){
     }
     
     
-    Serial.print(sensor[0]);
+    /*Serial.print(sensor[0]);
     Serial.print('\t');
     Serial.print(maxmin[0][0]);
     Serial.print('\t');
     Serial.print(maxmin[0][1]);
     Serial.print('\t');
-    Serial.println();
+    Serial.println();*/
   }
 
   for (int channel = 0; channel < 8; channel++){
     escala[channel][0] = 1000.0/(maxmin[channel][1] - maxmin[channel][0]);
     escala[channel][1] = maxmin[channel][0];
   }
+/*
+  Serial.print(sensor[0]);
+  Serial.print('\t');
+  Serial.print(maxmin[0][0]);
+  Serial.print('\t');
+  Serial.print(maxmin[0][1]);
+  Serial.print('\t');
+  Serial.println();*/
 
   SLcalibrado = 1;
 
@@ -135,8 +143,7 @@ int* dadosSL(){
       digitalWrite(S1_PIN, (channel >> 1) & 0x01);
       digitalWrite(S2_PIN, (channel >> 2) & 0x01);
 
-      // Aguarda um pequeno tempo para o multiplexador estabilizar
-      delay(5);
+      delayMicroseconds(50);
       
       // Le o valor do sensor no canal selecionado e armazena no array
       sensor[channel] = analogRead(ADC_PIN);
@@ -173,8 +180,9 @@ void printSL(){
       Satual = rawsensor[channel];
       Slfiltrado = Satual*1 + sensorA[channel]*0;
       Serial.print(Slfiltrado);
+      Serial.print('\t');
       sensorA[channel] = rawsensor[channel];
-      Serial.print('\t'); // Usa tabulacao para separar os valores
+      
     }
   }
 
@@ -202,20 +210,20 @@ void setMotorSpeed(int pwmPin, int speed) {
 void controle_P(){
   float velA;
   float velB;
-  float vel = 60;
+  float vel = 50;
   int *rawsensor = dadosSL();
   float Satual;
   float Slfiltrado;
   static float sensorA[8];
-  float peso[8] = {-1500, -1000, -300, -100, 100, 300, 1000, 1500};
+  float peso[8] = {-700, -500, -300, -150, 150, 300, 500, 700};
 
   long somaP = 0;
   long somaT = 0;
   long erro;
   static long erroA;
 
-  static float kp = 0.12;
-  static float kd = 0.073;
+  static float kp = 10;
+  static float kd = 5;
   static float ki = 0;
 
   float p;
@@ -236,9 +244,7 @@ void controle_P(){
   for (int channel = 0; channel < 8; channel++) {
     Satual =  escala[channel][0]*(rawsensor[channel]-escala[channel][1]);
     Satual = constrain(Satual, 0, 1000);
-    Slfiltrado = sensorA[channel]*0.6 + Satual*0.4;
-    /*Serial.print(Slfiltrado);
-    Serial.print('\t');*/
+    Slfiltrado = (sensorA[channel]*3 + Satual*7)/10;
     sensorA[channel] = Slfiltrado;
     somaP += (long)Slfiltrado*peso[channel];
     somaT += Slfiltrado;
@@ -256,7 +262,7 @@ void controle_P(){
   p = erro;
   d = (erro - erroA)/deltaT;
 
-  float df = 0.4*d + 0.6*da;
+  float df = (4*d + 6*da)/10;
 
   i += erro*deltaT;
 
@@ -264,7 +270,7 @@ void controle_P(){
 
   erroA = erro;
 
-  controle = kp*p + kd*df + ki*i;
+  controle = kp*p/10 + kd*df/100 + ki*i;
 
   velB = vel - controle;
   velA = vel + controle;
@@ -278,7 +284,7 @@ void controle_P(){
   /*
   Serial.print(p*kp);
   Serial.print('\t');
-  Serial.print(d*kd);
+  Serial.print(-d*kd);
   Serial.print('\t');
   Serial.print(velB);
   Serial.print('\t');
@@ -288,6 +294,6 @@ void controle_P(){
   Serial.print('\t');
   
   //printSL();
-  Serial.println();
-  */
+  Serial.println();*/
+  
   }
